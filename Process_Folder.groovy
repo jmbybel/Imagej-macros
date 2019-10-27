@@ -1,8 +1,8 @@
 #@ File    (label = "Input directory", style = "directory") srcDir
 #@ File    (label = "Output directory", style = "directory") dstDir
-#@ String  (label = "File extension", value=".tif") ext//purposely only use d0.tif as the filename selector.
-#@ String  (label = "left side", value = "d0.tif") leftSide
-#@ String  (label = "left side", value = "d1.tif") rightSide
+#@ String  (label = "File extension", value=".tif") ext
+#@ String  (label = "Green", value = "d0.tif") greenSide
+#@ String  (label = "Blue", value = "d1.tif") blueSide
 #@ Boolean (label = "Keep directory structure when saving", value = true) keepDirectories
 
 import ij.IJ
@@ -13,104 +13,76 @@ import ij.plugin.RGBStackMerge
 import ij.process.LUT
 import java.awt.Color
 import ij.plugin.CompositeConverter
-
+/*
+ * Iterate over a folder of images from a CX7 output.
+ * These will be TIFs with identical base names except the last digits before the .TIF: d0, d1, 01
+ * o1 is ignored, we want to create composites of the d0 and d1 images. 
+ * 
+ * 
+ */
 def main() {
-	leftList = [];
-	rightList = [];
+	greenList = [];
+	blueList = [];
 	srcDir.eachFileRecurse {
 		name = it.getName().toLowerCase()
-		if (name.endsWith(leftSide)) {
-			leftList.add(it)
-			//process(it, srcDir, dstDir, keepDirectories)
-		} else if (name.endsWith(rightSide)) {
-			rightList.add(it)
+		if (name.endsWith(greenSide)) {
+			greenList.add(it)
+		} else if (name.endsWith(blueSide)) {
+			blueList.add(it)
 		}
 	}
-	//since neither list is alphabetically sorted....
-	leftList.sort()
-	rightList.sort()
-	//now they should have the same filename except for the d0 / d1
-	for(int i = 0; i < leftList.size(); i++) {
-		if(i >= 2) {
-			break;
-		}
-		pairProcess(leftList.get(i), rightList.get(i), srcDir, dstDir, keepDirectories)
+	greenList.sort()
+	blueList.sort()
+	//iterating over both lists in order numerically should be the correct pairing.
+	for(int i = 0; i < greenList.size(); i++) {
+		pairProcess(greenList.get(i), blueList.get(i), srcDir, dstDir, keepDirectories)
 	}
 	
 }
 
 
-def pairProcess(leftFile, rightFile, sourceDir, destDir, keepDirs) {
-//			println("left " + leftFile.getName() + "right" + rightFile.getName())
+def pairProcess(greenFile, blueFile, sourceDir, destDir, keepDirs) {
+	if(greenFile.getName().substring(0, name.length()-6) != blueFile.getName().substring(0, name.length()-6)) {
+		println("Not the same base image name for merging, don't merge. green image: " + greenFile.getName() + " -- blue image:" + blueFile.getName());
+		return;
+	}
+	greenImage = IJ.openImage(greenFile.getAbsolutePath())
+	blueImage = IJ.openImage(blueFile.getAbsolutePath())
+	baseName  = greenFile.getName().substring(0, name.length()-6)
 
-	left = IJ.openImage(leftFile.getAbsolutePath())
-	right = IJ.openImage(rightFile.getAbsolutePath())
-	baseName  = leftFile.getName().substring(0, name.length()-6)
-
+//relativePAth is useless here at the moment.
 	relativePath = keepDirs ?
-			sourceDir.toPath().relativize(leftFile.getParentFile().toPath()).toString()
+			sourceDir.toPath().relativize(greenFile.getParentFile().toPath()).toString()
 			: "" // no relative path
 	saveDir = new File(destDir.toPath().toString(), relativePath)
 	if (!saveDir.exists())
 		saveDir.mkdirs()
 
 
-	doMerge(left, right, baseName, saveDir);
-	doDiff(left, right, baseName, saveDir);
+	doMerge(greenImage, blueImage, baseName, saveDir);
+	doDiff(greenImage, blueImage, baseName, saveDir);
 	
 
 }
 
-def doMerge(left, right, baseName, saveDir) {
-	/*
-	newLeft = left.clone();
-	newRight = right.clone();
-	cyan =  LUT.createLutFromColor(Color.CYAN)
-	green =  LUT.createLutFromColor(Color.GREEN)
-	newLeft.setLut(cyan)
-	newRight.setLut(green)
-	*/
-	    RGBStackMerge stackMerge = new RGBStackMerge();
-	    	//ignore luts is false.
-
-	channels = [left, right]
-	/*
-	if (imp instanceof CompositeImage) {
-	    luts = imp.getLuts()
-	    luts[0] = LUT.createLutFromColor(Color.CYAN)
-	    luts[1] = LUT.createLutFromColor(Color.BLUE)
-	    imp.setLuts(luts)
-	    imp.updateAndDraw() 
-	}*/
-	
-//this is just putting both images in the same color channel.
-//    result = stackMerge.mergeHyperstacks(channels as ImagePlus[], false);
-//    result = CompositeConverter.makeComposite(result);
-    //TODO ignoring lookup tables due to staticIgnoreLUTs only being set within the mergeStacks macro
-	//mergeChannels assumes i've already  done manipulations equal to the blank mergeStacks operation
-//	ImageStack startStack = new ImageStack[7]
-//	startStack[1] = left
-	ImageStack rgb = stackMerge.mergeStacks(left.getWidth(), left.getHeight(), left.getStackSize(), null, right.getStack(), left.getStack(), false)
-     result = new ImagePlus("RGB", rgb)
-           
-
-    
-//	result = stackMerge.mergeStacks(null, left, right, true)
-//     result.setDisplayMode(IJ.COLOR)
-//     result.flatten()
-//	result = run("Merge Channels...", "c2=[" + left + "] c3=[" +right +"] keep")
-	merged = new File(saveDir, baseName + "_merged.tif") // customize name if needed
+/**
+ * perform a stack merge on the two images, producing a green/blue composite image.
+ */
+def doMerge(greenImage, blueImage, baseName, saveDir) {
+	RGBStackMerge stackMerge = new RGBStackMerge();
+	ImageStack rgb = stackMerge.mergeStacks(greenImage.getWidth(), greenImage.getHeight(), greenImage.getStackSize(), null, greenImage.getStack(), blueImage.getStack(), false)
+    result = new ImagePlus("RGB", rgb)
+	merged = new File(saveDir, baseName + "_merged.tif") 
 	IJ.saveAs(result, "tiff", merged.absolutePath)
 
 }
-
-def doDiff(left, right, baseName, saveDir) {
-
-	result =  new ImageCalculator().run("Difference create", left,right);
-	diffed = new File(saveDir, baseName + "_diff.tif") // customize name if needed
-
+/**
+ * produce a image solely of the grayscale difference between the two images, absolute value
+ */
+def doDiff(greenImage, blueImage, baseName, saveDir) {
+	result =  new ImageCalculator().run("Difference create", greenImage, blueImage);
+	diffed = new File(saveDir, baseName + "_diff.tif")
 	IJ.saveAs(result, "tif", diffed.absolutePath)
-
 }
 
 main()
