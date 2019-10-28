@@ -3,7 +3,7 @@
 #@ String  (label = "File extension", value=".tif") ext
 #@ String  (label = "Green", value = "d0.tif") greenSide
 #@ String  (label = "Blue", value = "d1.tif") blueSide
-#@ Boolean (label = "Keep directory structure when saving", value = true) keepDirectories
+#@ Boolean (label = "this field not implmemented", value = true) keepDirectories
 
 import ij.IJ
 import ij.ImageStack
