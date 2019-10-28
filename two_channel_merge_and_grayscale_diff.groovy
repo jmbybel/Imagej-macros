@@ -1,8 +1,8 @@
 #@ File    (label = "Input directory", style = "directory") srcDir
 #@ File    (label = "Output directory", style = "directory") dstDir
 #@ String  (label = "File extension", value=".tif") ext
-#@ String  (label = "Green", value = "d0.tif") greenSide
-#@ String  (label = "Blue", value = "d1.tif") blueSide
+#@ String  (label = "Green naming pattern", value = "d0.tif") greenSide
+#@ String  (label = "Blue naming pattern", value = "d1.tif") blueSide
 #@ Boolean (label = "this field not implmemented", value = true) keepDirectories
 
 import ij.IJ
@@ -15,7 +15,7 @@ import java.awt.Color
 import ij.plugin.CompositeConverter
 /*
  * Iterate over a folder of images from a CX7 output.
- * These will be TIFs with identical base names except the last digits before the .TIF: d0, d1, 01
+ * These will be TIFs with identical base names except the last digits before the .TIF: d0, d1, o1
  * o1 is ignored, we want to create composites of the d0 and d1 images. 
  * 
  * 
